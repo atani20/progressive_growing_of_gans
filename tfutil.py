@@ -24,7 +24,7 @@ def is_tf_expression(x):
     return isinstance(x, tf.Tensor) or isinstance(x, tf.Variable) or isinstance(x, tf.Operation)
 
 def shape_to_list(shape):
-    return [dim.value for dim in shape]
+    return [dim for dim in shape]
 
 def flatten(x):
     with tf.compat.v1.name_scope('Flatten'):
@@ -247,7 +247,7 @@ class Optimizer:
     def __init__(
         self,
         name                = 'Train',
-        tf_optimizer        = 'tf.train.AdamOptimizer',
+        tf_optimizer        = 'tf.compat.v1.train.AdamOptimizer',
         learning_rate       = 0.001,
         use_loss_scaling    = False,
         loss_scaling_init   = 64.0,
