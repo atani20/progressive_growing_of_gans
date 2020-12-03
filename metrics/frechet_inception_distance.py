@@ -52,8 +52,8 @@ class InvalidFIDException(Exception):
 def create_inception_graph(pth):
     """Creates a graph from saved GraphDef file."""
     # Creates graph from saved graph_def.pb.
-    with tf.gfile.FastGFile( pth, 'rb') as f:
-        graph_def = tf.GraphDef()
+    with tf.compat.v1.gfile.FastGFile( pth, 'rb') as f:
+        graph_def = tf.compat.v1.GraphDef()
         graph_def.ParseFromString( f.read())
         _ = tf.import_graph_def( graph_def, name='FID_Inception_Net')
 #-------------------------------------------------------------------------------
@@ -221,8 +221,8 @@ def calculate_fid_given_paths(paths, inception_path):
             raise RuntimeError("Invalid path: %s" % p)
 
     create_inception_graph(str(inception_path))
-    with tf.Session() as sess:
-        sess.run(tf.global_variables_initializer())
+    with tf.compat.v1.Session() as sess:
+        sess.run(tf.compat.v1.global_variables_initializer())
         m1, s1 = _handle_path(paths[0], sess)
         m2, s2 = _handle_path(paths[1], sess)
         fid_value = calculate_frechet_distance(m1, s1, m2, s2)
@@ -251,7 +251,7 @@ class API:
         import config
         self.network_dir = os.path.join(config.result_dir, '_inception_fid')
         self.network_file = check_or_download_inception(self.network_dir)
-        self.sess = tf.get_default_session()
+        self.sess = tf.compat.v1.get_default_session()
         create_inception_graph(self.network_file)
 
     def get_metric_names(self):
