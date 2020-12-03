@@ -627,7 +627,7 @@ def create_from_hdf5(tfrecord_dir, hdf5_filename, shuffle):
     print('Loading HDF5 archive from "%s"' % hdf5_filename)
     import h5py # conda install h5py
     with h5py.File(hdf5_filename, 'r') as hdf5_file:
-        hdf5_data = max([value for key, value in hdf5_file.items() if key.startswith('data')], key=lambda lod: lod.shape[3])
+        hdf5_data = max([value for key, value in hdf5_file.items() if key.startswith('')], key=lambda lod: lod.shape[3])
         with TFRecordExporter(tfrecord_dir, hdf5_data.shape[0]) as tfr:
             order = tfr.choose_shuffled_order() if shuffle else np.arange(hdf5_data.shape[0])
             for idx in range(order.size):
@@ -735,6 +735,7 @@ def execute_cmdline(argv):
 #----------------------------------------------------------------------------
 
 if __name__ == "__main__":
-    execute_cmdline(sys.argv)
+    create_from_hdf5("ldct", "C:/Users/ACER/Desktop/диплом/progressive_growing_of_gans/C002_dim3.h5", False)
+    # execute_cmdline(sys.argv)
 
 #----------------------------------------------------------------------------
