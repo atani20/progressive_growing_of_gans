@@ -82,6 +82,15 @@ def save_image(image, filename, drange=[0,1], quality=95):
 def save_image_grid(images, filename, drange=[0,1], grid_size=None):
     convert_to_pil_image(create_image_grid(images, grid_size), drange).save(filename)
 
+def save_ldct_image(images, filename, drange=[0,1], grid_size=None):
+    img1 = np.hstack([images[0][0], images[0][1]])
+    img2 = np.hstack([images[1][0], images[1][1]])
+    data = np.vstack((img1, img2))
+    img = adjust_dynamic_range(data, drange, [0,255])
+    img = np.rint(img).clip(0, 255).astype(np.uint8)
+    PIL.Image.fromarray(img, 'L').save(filename)
+
+
 #----------------------------------------------------------------------------
 # Logging of stdout and stderr to a file.
 
