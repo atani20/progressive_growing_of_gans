@@ -42,7 +42,7 @@ def dense(x, fmaps, gain=np.sqrt(2), use_wscale=False):
 # Convolutional layer.
 
 def conv2d(x, fmaps, kernel, gain=np.sqrt(2), use_wscale=False):
-    assert kernel >= 1 and kernel % 2 == 1
+    # assert kernel >= 1 and kernel % 2 == 1
     w = get_weight([kernel, kernel, x.shape[1], fmaps], gain=gain, use_wscale=use_wscale)
     w = tf.cast(w, x.dtype)
     return tf.nn.conv2d(input=x, filters=w, strides=[1,1,1,1], padding='SAME', data_format='NCHW')
@@ -84,7 +84,7 @@ def upscale2d(x, factor=2):
 # Faster and uses less memory than performing the operations separately.
 
 def upscale2d_conv2d(x, fmaps, kernel, gain=np.sqrt(2), use_wscale=False):
-    assert kernel >= 1 and kernel % 2 == 1
+    # assert kernel >= 1 and kernel % 2 == 1
     w = get_weight([kernel, kernel, fmaps, x.shape[1]], gain=gain, use_wscale=use_wscale, fan_in=(kernel**2)*x.shape[1])
     w = tf.pad(tensor=w, paddings=[[1,1], [1,1], [0,0], [0,0]], mode='CONSTANT')
     w = tf.add_n([w[1:, 1:], w[:-1, 1:], w[1:, :-1], w[:-1, :-1]])
@@ -107,7 +107,7 @@ def downscale2d(x, factor=2):
 # Faster and uses less memory than performing the operations separately.
 
 def conv2d_downscale2d(x, fmaps, kernel, gain=np.sqrt(2), use_wscale=False):
-    assert kernel >= 1 and kernel % 2 == 1
+    # assert kernel >= 1 and kernel % 2 == 1
     w = get_weight([kernel, kernel, x.shape[1], fmaps], gain=gain, use_wscale=use_wscale)
     w = tf.pad(tensor=w, paddings=[[1,1], [1,1], [0,0], [0,0]], mode='CONSTANT')
     w = tf.add_n([w[1:, 1:], w[:-1, 1:], w[1:, :-1], w[:-1, :-1]]) * 0.25
@@ -153,13 +153,14 @@ def G_paper(
     latent_size         = None,         # Dimensionality of the latent vectors. None = min(fmap_base, fmap_max).
     normalize_latents   = True,         # Normalize latent vectors before feeding them to the network?
     use_wscale          = True,         # Enable equalized learning rate?
-    use_pixelnorm       = True,         # Enable pixelwise feature vector normalization?
+    use_pixelnorm       = False,         # Enable pixelwise feature vector normalization?
     pixelnorm_epsilon   = 1e-8,         # Constant epsilon for pixelwise feature vector normalization.
     use_leakyrelu       = True,         # True = leaky ReLU, False = ReLU.
-    dtype               = 'float32',    # Data type to use for activations and outputs.
+    dtype               = 'float64',    # Data type to use for activations and outputs.
     fused_scale         = True,         # True = use fused upscale2d + conv2d, False = separate upscale2d layers.
     structure           = None,         # 'linear' = human-readable, 'recursive' = efficient, None = select automatically.
     is_template_graph   = False,        # True = template graph constructed by the Network class, False = actual evaluation.
+    kernel_size         = 2,
     **kwargs):                          # Ignore unrecognized keyword args.
     
     resolution_log2 = int(np.log2(resolution))
@@ -176,7 +177,7 @@ def G_paper(
     lod_in = tf.cast(tf.compat.v1.get_variable('lod', initializer=np.float32(0.0), trainable=False), dtype)
 
     # Building blocks.
-    def block(x, res): # res = 2..resolution_log2
+    def block(x, res, kernel_size): # res = 2..resolution_log2
         with tf.compat.v1.variable_scope('%dx%d' % (2**res, 2**res)):
             if res == 2: # 4x4
                 if normalize_latents: x = pixel_norm(x, epsilon=pixelnorm_epsilon)
@@ -185,17 +186,17 @@ def G_paper(
                     x = tf.reshape(x, [-1, nf(res-1), 4, 4])
                     x = PN(act(apply_bias(x)))
                 with tf.compat.v1.variable_scope('Conv'):
-                    x = PN(act(apply_bias(conv2d(x, fmaps=nf(res-1), kernel=3, use_wscale=use_wscale))))
+                    x = PN(act(apply_bias(conv2d(x, fmaps=nf(res-1), kernel=kernel_size, use_wscale=use_wscale))))
             else: # 8x8 and up
                 if fused_scale:
                     with tf.compat.v1.variable_scope('Conv0_up'):
-                        x = PN(act(apply_bias(upscale2d_conv2d(x, fmaps=nf(res-1), kernel=3, use_wscale=use_wscale))))
+                        x = PN(act(apply_bias(upscale2d_conv2d(x, fmaps=nf(res-1), kernel=kernel_size, use_wscale=use_wscale))))
                 else:
                     x = upscale2d(x)
                     with tf.compat.v1.variable_scope('Conv0'):
-                        x = PN(act(apply_bias(conv2d(x, fmaps=nf(res-1), kernel=3, use_wscale=use_wscale))))
+                        x = PN(act(apply_bias(conv2d(x, fmaps=nf(res-1), kernel=kernel_size, use_wscale=use_wscale))))
                 with tf.compat.v1.variable_scope('Conv1'):
-                    x = PN(act(apply_bias(conv2d(x, fmaps=nf(res-1), kernel=3, use_wscale=use_wscale))))
+                    x = PN(act(apply_bias(conv2d(x, fmaps=nf(res-1), kernel=kernel_size, use_wscale=use_wscale))))
             return x
     def torgb(x, res): # res = 2..resolution_log2
         lod = resolution_log2 - res
@@ -204,11 +205,11 @@ def G_paper(
 
     # Linear structure: simple but inefficient.
     if structure == 'linear':
-        x = block(combo_in, 2)
+        x = block(combo_in, 2, kernel_size)
         images_out = torgb(x, 2)
         for res in range(3, resolution_log2 + 1):
             lod = resolution_log2 - res
-            x = block(x, res)
+            x = block(x, res, kernel_size)
             img = torgb(x, res)
             images_out = upscale2d(images_out)
             with tf.compat.v1.variable_scope('Grow_lod%d' % lod):
@@ -217,7 +218,7 @@ def G_paper(
     # Recursive structure: complex but efficient.
     if structure == 'recursive':
         def grow(x, res, lod):
-            y = block(x, res)
+            y = block(x, res, kernel_size)
             img = lambda: upscale2d(torgb(y, res), 2**lod)
             if res > 2: img = cset(img, (lod_in > lod), lambda: upscale2d(lerp(torgb(y, res), upscale2d(torgb(x, res - 1)), lod_in - lod), 2**lod))
             if lod > 0: img = cset(img, (lod_in < lod), lambda: grow(y, res + 1, lod - 1))
@@ -245,6 +246,7 @@ def D_paper(
     fused_scale         = True,         # True = use fused conv2d + downscale2d, False = separate downscale2d layers.
     structure           = None,         # 'linear' = human-readable, 'recursive' = efficient, None = select automatically
     is_template_graph   = False,        # True = template graph constructed by the Network class, False = actual evaluation.
+    kernel_size         = 2,
     **kwargs):                          # Ignore unrecognized keyword args.
     
     resolution_log2 = int(np.log2(resolution))
@@ -261,23 +263,23 @@ def D_paper(
     def fromrgb(x, res): # res = 2..resolution_log2
         with tf.compat.v1.variable_scope('FromRGB_lod%d' % (resolution_log2 - res)):
             return act(apply_bias(conv2d(x, fmaps=nf(res-1), kernel=1, use_wscale=use_wscale)))
-    def block(x, res): # res = 2..resolution_log2
+    def block(x, res, kernel_size): # res = 2..resolution_log2
         with tf.compat.v1.variable_scope('%dx%d' % (2**res, 2**res)):
             if res >= 3: # 8x8 and up
                 with tf.compat.v1.variable_scope('Conv0'):
-                    x = act(apply_bias(conv2d(x, fmaps=nf(res-1), kernel=3, use_wscale=use_wscale)))
+                    x = act(apply_bias(conv2d(x, fmaps=nf(res-1), kernel=kernel_size, use_wscale=use_wscale)))
                 if fused_scale:
                     with tf.compat.v1.variable_scope('Conv1_down'):
-                        x = act(apply_bias(conv2d_downscale2d(x, fmaps=nf(res-2), kernel=3, use_wscale=use_wscale)))
+                        x = act(apply_bias(conv2d_downscale2d(x, fmaps=nf(res-2), kernel=kernel_size, use_wscale=use_wscale)))
                 else:
                     with tf.compat.v1.variable_scope('Conv1'):
-                        x = act(apply_bias(conv2d(x, fmaps=nf(res-2), kernel=3, use_wscale=use_wscale)))
+                        x = act(apply_bias(conv2d(x, fmaps=nf(res-2), kernel=kernel_size, use_wscale=use_wscale)))
                     x = downscale2d(x)
             else: # 4x4
                 if mbstd_group_size > 1:
                     x = minibatch_stddev_layer(x, mbstd_group_size)
                 with tf.compat.v1.variable_scope('Conv'):
-                    x = act(apply_bias(conv2d(x, fmaps=nf(res-1), kernel=3, use_wscale=use_wscale)))
+                    x = act(apply_bias(conv2d(x, fmaps=nf(res-1), kernel=kernel_size, use_wscale=use_wscale)))
                 with tf.compat.v1.variable_scope('Dense0'):
                     x = act(apply_bias(dense(x, fmaps=nf(res-2), use_wscale=use_wscale)))
                 with tf.compat.v1.variable_scope('Dense1'):
@@ -290,19 +292,19 @@ def D_paper(
         x = fromrgb(img, resolution_log2)
         for res in range(resolution_log2, 2, -1):
             lod = resolution_log2 - res
-            x = block(x, res)
+            x = block(x, res, kernel_size)
             img = downscale2d(img)
             y = fromrgb(img, res - 1)
             with tf.compat.v1.variable_scope('Grow_lod%d' % lod):
                 x = lerp_clip(x, y, lod_in - lod)
-        combo_out = block(x, 2)
+        combo_out = block(x, 2, kernel_size)
 
     # Recursive structure: complex but efficient.
     if structure == 'recursive':
         def grow(res, lod):
             x = lambda: fromrgb(downscale2d(images_in, 2**lod), res)
             if lod > 0: x = cset(x, (lod_in < lod), lambda: grow(res + 1, lod - 1))
-            x = block(x(), res); y = lambda: x
+            x = block(x(), res, kernel_size); y = lambda: x
             if res > 2: y = cset(y, (lod_in > lod), lambda: lerp(x, fromrgb(downscale2d(images_in, 2**(lod+1)), res - 1), lod_in - lod))
             return y()
         combo_out = grow(2, resolution_log2 - 2)
