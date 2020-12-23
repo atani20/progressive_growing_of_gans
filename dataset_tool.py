@@ -65,7 +65,7 @@ class TFRecordExporter:
         if self.shape is None:
             self.shape = img.shape
             self.resolution_log2 = int(np.log2(self.shape[1]))
-            assert self.shape[0] in [1, 3]
+            assert self.shape[0] in [1, 2, 3]
             assert self.shape[1] == self.shape[2]
             assert self.shape[1] == 2**self.resolution_log2
             tfr_opt = tf.io.TFRecordOptions(tf.compat.v1.python_io.TFRecordCompressionType.NONE)
@@ -75,9 +75,9 @@ class TFRecordExporter:
         assert img.shape == self.shape
         for lod, tfr_writer in enumerate(self.tfr_writers):
             if lod:
-                img = img.astype(np.float32)
+                img = img.astype(np.float64)
                 img = (img[:, 0::2, 0::2] + img[:, 0::2, 1::2] + img[:, 1::2, 0::2] + img[:, 1::2, 1::2]) * 0.25
-            quant = np.rint(img).clip(0, 255).astype(np.uint8)
+            quant = np.rint(img).clip(0, 4095).astype(np.uint16)
             ex = tf.train.Example(features=tf.train.Features(feature={
                 'shape': tf.train.Feature(int64_list=tf.train.Int64List(value=quant.shape)),
                 'data': tf.train.Feature(bytes_list=tf.train.BytesList(value=[quant.tostring()]))}))
@@ -631,6 +631,7 @@ def create_from_hdf5(tfrecord_dir, hdf5_filename, shuffle):
         with TFRecordExporter(tfrecord_dir, hdf5_data.shape[0]) as tfr:
             order = tfr.choose_shuffled_order() if shuffle else np.arange(hdf5_data.shape[0])
             for idx in range(order.size):
+                img = hdf5_data[order[idx]]
                 tfr.add_image(hdf5_data[order[idx]])
             npy_filename = os.path.splitext(hdf5_filename)[0] + '-labels.npy'
             if os.path.isfile(npy_filename):
@@ -735,7 +736,7 @@ def execute_cmdline(argv):
 #----------------------------------------------------------------------------
 
 if __name__ == "__main__":
-    create_from_hdf5("ldct", "C:/Users/ACER/Desktop/диплом/progressive_growing_of_gans/C002_dim3.h5", False)
+    create_from_hdf5("ldct", "C:/Users/ACER/Desktop/диплом/progressive_growing_of_gans/C002_dim2.h5", False)
     # execute_cmdline(sys.argv)
 
 #----------------------------------------------------------------------------
