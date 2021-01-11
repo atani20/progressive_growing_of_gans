@@ -733,10 +733,33 @@ def execute_cmdline(argv):
     del args.command
     func(**vars(args))
 
+
+#----------------------------------------------------------------------------
+
+def create_from_hdf5_dir(tfrecord_dir, hdf5s_dir, shuffle):
+    print('Loading HDF5 files from directory  "%s"' % hdf5s_dir)
+    tfr_files = sorted(glob.glob(os.path.join(hdf5s_dir, '*.h5')))
+    expected_imgs = 16648
+    import h5py # conda install h5py
+    i = 0
+    with TFRecordExporter(tfrecord_dir, expected_imgs) as tfr:
+        for hdf5_filename in tfr_files:
+
+            with h5py.File(hdf5_filename, 'r') as hdf5_file:
+                hdf5_data = max([value for key, value in hdf5_file.items() if key.startswith('')],
+                                key=lambda lod: lod.shape[3])
+                order = tfr.choose_shuffled_order() if shuffle else np.arange(hdf5_data.shape[0])
+                for idx in range(order.size):
+                    img = hdf5_data[order[idx]]
+                    tfr.add_image(img)
+            print(i, tfr.cur_images, hdf5_filename)
+            i += 1
+
+
 #----------------------------------------------------------------------------
 
 if __name__ == "__main__":
-    create_from_hdf5("ldct", "C:/Users/ACER/Desktop/диплом/progressive_growing_of_gans/C002_dim2.h5", False)
+    create_from_hdf5_dir("ldct", "C:/Users/ACER/Desktop/диплом/notebooks/", False)
     # execute_cmdline(sys.argv)
 
 #----------------------------------------------------------------------------
