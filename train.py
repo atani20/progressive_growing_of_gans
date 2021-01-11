@@ -155,7 +155,7 @@ def train_progressive_gan(
         if resume_run_id is not None:
             network_pkl = misc.locate_network_pkl(resume_run_id, resume_snapshot)
             print('Loading networks from "%s"...' % network_pkl)
-            G, D, Gs = misc.load_pkl(network_pkl)
+            G, D, Gs, resume_kimg, resume_time = misc.load_pkl(network_pkl)
         else:
             print('Constructing networks...')
             G = tfutil.Network('G', num_channels=training_set.shape[0], resolution=training_set.shape[1], label_size=training_set.label_size, **config.G)
@@ -198,11 +198,6 @@ def train_progressive_gan(
 
     print('Setting up result dir...')
     result_subdir = misc.create_result_subdir(config.result_dir, config.desc)
-
-    # import h5py
-    # hf = h5py.File('fakes.h5', 'w')
-    # hf.create_dataset('dataset_1', data=grid_fakes)
-    # hf.close()
 
     misc.save_ldct_image(grid_reals, os.path.join(result_subdir, 'reals.png'), drange=training_set.dynamic_range, grid_size=grid_size)
     misc.save_ldct_image(grid_fakes, os.path.join(result_subdir, 'fakes%06d.png' % 0), drange=drange_net,
@@ -268,8 +263,7 @@ def train_progressive_gan(
                 grid_fakes = Gs.run(grid_latents, grid_labels, minibatch_size=sched.minibatch//config.num_gpus)
                 misc.save_ldct_image(grid_fakes, os.path.join(result_subdir, 'fakes%06d.png' % (cur_nimg // 1000)), drange=drange_net, grid_size=grid_size)
             if cur_tick % network_snapshot_ticks == 0 or done:
-                misc.save_pkl((G, D, Gs), os.path.join(result_subdir, 'network-snapshot-%06d.pkl' % (cur_nimg // 1000)))
-
+                misc.save_pkl((G, D, Gs, cur_nimg / 1000, total_time), os.path.join(result_subdir, 'network-snapshot-%06d.pkl' % (cur_nimg // 1000)))
             # Record start time of the next tick.
             tick_start_time = time.time()
 

@@ -169,7 +169,7 @@ def finalize_autosummaries():
                 avg = sum[0] / sum[1]
                 with tf.control_dependencies([avg]): # read before resetting
                     reset_ops = [tf.compat.v1.assign(var, tf.zeros(2)) for var in vars]
-                    with tf.name_scope(None), tf.control_dependencies(reset_ops): # reset before reporting
+                    with tf.compat.v1.name_scope(None), tf.control_dependencies(reset_ops): # reset before reporting
                         tf.compat.v1.summary.scalar(name, avg)
 
 # Internal helper for creating autosummary accumulators.
