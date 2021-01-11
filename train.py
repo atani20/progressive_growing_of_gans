@@ -199,6 +199,14 @@ def train_progressive_gan(
     print('Setting up result dir...')
     result_subdir = misc.create_result_subdir(config.result_dir, config.desc)
 
+<<<<<<< HEAD
+=======
+    # import h5py
+    # hf = h5py.File('fakes.h5', 'w')
+    # hf.create_dataset('dataset_1', data=grid_fakes)
+    # hf.close()
+
+>>>>>>> autoTF2update
     misc.save_ldct_image(grid_reals, os.path.join(result_subdir, 'reals.png'), drange=training_set.dynamic_range, grid_size=grid_size)
     misc.save_ldct_image(grid_fakes, os.path.join(result_subdir, 'fakes%06d.png' % 0), drange=drange_net,
                          grid_size=grid_size)

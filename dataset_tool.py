@@ -759,7 +759,11 @@ def create_from_hdf5_dir(tfrecord_dir, hdf5s_dir, shuffle):
 #----------------------------------------------------------------------------
 
 if __name__ == "__main__":
+<<<<<<< HEAD
     create_from_hdf5_dir("ldct", "C:/Users/ACER/Desktop/диплом/notebooks/", False)
+=======
+    create_from_hdf5("ldct", "C:/Users/ACER/Desktop/диплом/progressive_growing_of_gans/C002_dim2.h5", False)
+>>>>>>> autoTF2update
     # execute_cmdline(sys.argv)
 
 #----------------------------------------------------------------------------
